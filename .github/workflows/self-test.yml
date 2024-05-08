@@ -1,0 +1,43 @@
+name: Self-Test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Use Action
+        id: test-action
+        uses: ./
+        with:
+          path: .artifacts/junit.xml
+          gcs_path: ${{ secrets.GCS_BUCKET }}/self-test/${{ github.run_id }}
+          gcp_project_id: ${{ secrets.GCP_PROJECT_ID }}
+          workload_identity_provider: ${{ secrets.KHULNASOFT_GCP_DEV_WORKLOAD_IDENTITY_POOL }}
+          service_account_email: ${{ secrets.SUDO_GCP_SERVICE_ACCOUNT }}
+
+      - name: Check Output
+        run: |
+          # Check that both files were uploaded (using the output from the action)
+          files="${{ steps.test-action.outputs.uploaded }}"
+          if [[ $files != *'junit.xml'* ]]; then
+            echo "junit.xml not uploaded"
+            exit 1
+          fi
+          if [[ $files != *'metadata.json'* ]]; then
+            echo "metadata.json not uploaded"
+            exit 1
+          fi
+          echo "Files uploaded successfully"
